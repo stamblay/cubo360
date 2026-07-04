@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubo 360 MTG</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0e0e12;
+    --surface:   #16161e;
+    --border:    #2a2a3a;
+    --gold:      #c8a84b;
+    --gold-dim:  #7a6530;
+    --text:      #d4cfc4;
+    --text-dim:  #6e6860;
+    --red:       #c0392b;
+    --green:     #27ae60;
+    --blue:      #2980b9;
+    --white-c:   #bdc3c7;
+    --black-c:   #8e44ad;
+    --multi:     #e67e22;
+    --artifact:  #95a5a6;
+    --land:      #16a085;
+    --radius:    6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(180deg, #1a1420 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--gold-dim);
+    padding: 18px 20px 14px;
+    text-align: center;
+  }
+
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  header p {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── NAV ── */
+  nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  nav button {
+    flex: 1;
+    padding: 13px 8px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  nav button.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 20px 16px; max-width: 480px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 12px;
+  }
+
+  .status-bar span { color: var(--text-dim); }
+  .status-bar strong { color: var(--gold); font-size: 16px; }
+
+  /* ── FORM ── */
+  .field { margin-bottom: 16px; }
+
+  label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-family: 'Cinzel', serif;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus { border-color: var(--gold-dim); }
+
+  /* ── AUTOCOMPLETE ── */
+  .autocomplete-wrap { position: relative; }
+
+  .suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #1e1e2a;
+    border: 1px solid var(--gold-dim);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    z-index: 100;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .suggestions li {
+    padding: 9px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    list-style: none;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .suggestions li:hover { background: var(--border); color: var(--gold); }
+  .suggestions li:last-child { border-bottom: none; }
+
+  /* ── COLOR PILLS ── */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+
+  .color-pill {
+    padding: 8px 4px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .color-pill.selected { border-color: var(--gold); color: var(--gold); }
+  .color-pill[data-color="Blanco"].selected  { border-color: var(--white-c); color: var(--white-c); }
+  .color-pill[data-color="Azul"].selected    { border-color: var(--blue); color: var(--blue); }
+  .color-pill[data-color="Negro"].selected   { border-color: var(--black-c); color: var(--black-c); }
+  .color-pill[data-color="Rojo"].selected    { border-color: var(--red); color: var(--red); }
+  .color-pill[data-color="Verde"].selected   { border-color: var(--green); color: var(--green); }
+  .color-pill[data-color="Multicolor"].selected { border-color: var(--multi); color: var(--multi); }
+  .color-pill[data-color="Artefactos"].selected { border-color: var(--artifact); color: var(--artifact); }
+  .color-pill[data-color="Tierras"].selected { border-color: var(--land); color: var(--land); }
+
+  /* ── BTN ── */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, #7a6530, #c8a84b);
+    border: none;
+    border-radius: var(--radius);
+    color: #0e0e12;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0;
+    margin-top: 10px;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1e2e1e;
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    z-index: 999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .toast.error { background: #2e1e1e; border-color: var(--red); color: var(--red); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── UNDO BAR ── */
+  .undo-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: #1e1e2a;
+    border-top: 1px solid var(--gold-dim);
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    z-index: 500;
+  }
+
+  .undo-bar.show { transform: translateY(0); }
+
+  .undo-bar span {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .undo-bar button {
+    background: none;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 7px 18px;
+    border-radius: var(--radius);
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .undo-bar button:active { background: var(--gold); color: #0e0e12; }
+
+  /* ── AUTOCOMPLETE HIGHLIGHT ── */
+  .suggestions li.highlight { background: var(--border); color: var(--gold); }
+
+  /* ── SHEET LINK ── */
+  .sheet-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .sheet-card h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 14px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .sheet-card p {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .sheet-link {
+    display: inline-block;
+    padding: 11px 24px;
+    background: var(--surface);
+    border: 1px solid var(--gold-dim);
+    border-radius: var(--radius);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .sheet-link:hover { background: var(--gold-dim); color: #0e0e12; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+  }
+
+  /* ── CMC GRID ── */
+  .cmc-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+
+  .cmc-pill {
+    padding: 10px 4px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .cmc-pill.selected { border-color: var(--gold); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Cubo 360</h1>
+  <p>Peasant · Pauper · MTG</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showView('cargar', this)">Cargar</button>
+  <button onclick="showView('planilla', this)">Planilla</button>
+</nav>
+
+<!-- ── VISTA: CARGAR ── -->
+<div id="view-cargar" class="view active">
+
+  <div class="status-bar" id="status-bar">
+    <span>Cartas en BD</span>
+    <strong id="bd-count">—</strong>
+  </div>
+
+  <div class="field">
+    <label>Nombre de la carta</label>
+    <div class="autocomplete-wrap">
+      <input type="text" id="nombre" placeholder="Ej: Lightning Bolt" autocomplete="off" oninput="onNombreInput(this.value)" onkeydown="onNombreKeydown(event)" />
+      <ul class="suggestions" id="suggestions" style="display:none"></ul>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Color</label>
+    <div class="color-grid">
+      <div class="color-pill" data-color="Blanco" onclick="selectColor(this)">Blanco</div>
+      <div class="color-pill" data-color="Azul" onclick="selectColor(this)">Azul</div>
+      <div class="color-pill" data-color="Negro" onclick="selectColor(this)">Negro</div>
+      <div class="color-pill" data-color="Rojo" onclick="selectColor(this)">Rojo</div>
+      <div class="color-pill" data-color="Verde" onclick="selectColor(this)">Verde</div>
+      <div class="color-pill" data-color="Multicolor" onclick="selectColor(this)">Multi</div>
+      <div class="color-pill" data-color="Artefactos" onclick="selectColor(this)">Artefacto</div>
+      <div class="color-pill" data-color="Tierras" onclick="selectColor(this)">Tierra</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>CMC</label>
+    <div class="cmc-grid">
+      <div class="cmc-pill" data-cmc="0" onclick="selectCMC(this)">0</div>
+      <div class="cmc-pill" data-cmc="1" onclick="selectCMC(this)">1</div>
+      <div class="cmc-pill" data-cmc="2" onclick="selectCMC(this)">2</div>
+      <div class="cmc-pill" data-cmc="3" onclick="selectCMC(this)">3</div>
+      <div class="cmc-pill" data-cmc="4" onclick="selectCMC(this)">4</div>
+      <div class="cmc-pill" data-cmc="5" onclick="selectCMC(this)">5</div>
+      <div class="cmc-pill" data-cmc="6+" onclick="selectCMC(this)">6+</div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Tipo</label>
+    <select id="tipo">
+      <option value="Criatura">Criatura</option>
+      <option value="Instantáneo">Instantáneo</option>
+      <option value="Conjuro">Conjuro</option>
+      <option value="Encantamiento">Encantamiento</option>
+      <option value="Artefacto">Artefacto</option>
+      <option value="Planeswalker">Planeswalker</option>
+      <option value="Tierra">Tierra</option>
+      <option value="Otro">Otro</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Aportado por</label>
+    <input type="text" id="aportado" value="Walala" />
+  </div>
+
+  <div class="field">
+    <label>Estado</label>
+    <select id="estado">
+      <option value="Seleccionada">Seleccionada</option>
+      <option value="Banca">Banca</option>
+      <option value="Wishlist">Wishlist</option>
+    </select>
+  </div>
+
+  <button class="btn" onclick="insertar()">Insertar carta</button>
+
+  <hr class="divider">
+
+  <button class="btn btn-secondary" onclick="verUltimas()">Ver últimas 5 insertadas</button>
+
+  <div id="ultimas" style="margin-top:14px; font-size:12px; color:var(--text-dim); display:none"></div>
+</div>
+
+<!-- ── VISTA: PLANILLA ── -->
+<div id="view-planilla" class="view">
+  <div class="sheet-card">
+    <h3>Dashboard & BD</h3>
+    <p>Accedé a la planilla completa con el dashboard de progreso, curva de CMC, contribuidores y todas las cartas cargadas.</p>
+    <a class="sheet-link" href="https://docs.google.com/spreadsheets/d/1FtzXuVUDUdqcr5Xkah1wCP_QUm2hL7DtqpKVdzefcFc" target="_blank">Abrir planilla →</a>
+  </div>
+
+  <div class="status-bar">
+    <span>Cartas en BD</span>
+    <strong id="bd-count-2">—</strong>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── UNDO BAR (estilo Gmail) ── -->
+<div class="undo-bar" id="undo-bar">
+  <span id="undo-text"></span>
+  <button onclick="undoPending()">Deshacer</button>
+</div>
+
+<script>
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzyvUn-Z0nhDtjEBLXj5_PoUSq5y1rWVZtSh1IQBhIebd-DEGCWIgDouDaQPFxOwqBL/exec";
+
+  let selectedColor = null;
+  let selectedCMC = null;
+  let autocompleteTimer = null;
+  let lastInserted = [];
+  let currentSuggestions = [];
+  let highlightIndex = -1;
+  let pendingInsert = null;   // { payload, timeoutId } mientras corre la ventana de undo
+  let cardDataLoading = false; // true mientras selectCard busca datos en Scryfall
+
+  // ── NAVEGACIÓN ──
+  function showView(name, btn) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('view-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'planilla') fetchStatus();
+  }
+
+  // ── STATUS ──
+  async function fetchStatus() {
+    try {
+      const res = await fetch(SCRIPT_URL);
+      const data = await res.json();
+      const n = data.bd_cartas_cargadas ?? '—';
+      document.getElementById('bd-count').textContent = n;
+      document.getElementById('bd-count-2').textContent = n;
+    } catch(e) {
+      document.getElementById('bd-count').textContent = '?';
+    }
+  }
+
+  // ── AUTOCOMPLETE ──
+  function onNombreInput(val) {
+    clearTimeout(autocompleteTimer);
+    const sug = document.getElementById('suggestions');
+    if (val.length < 2) { sug.style.display = 'none'; return; }
+    autocompleteTimer = setTimeout(() => fetchSuggestions(val), 300);
+  }
+
+  async function fetchSuggestions(q) {
+    const sug = document.getElementById('suggestions');
+    try {
+      const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!data.data || data.data.length === 0) { sug.style.display = 'none'; return; }
+      currentSuggestions = data.data.slice(0, 8);
+      highlightIndex = -1;
+      renderSuggestions();
+      sug.style.display = 'block';
+    } catch(e) {
+      sug.style.display = 'none';
+      showToast('No se pudo conectar con Scryfall', true);
+    }
+  }
+
+  function renderSuggestions() {
+    const sug = document.getElementById('suggestions');
+    sug.innerHTML = '';
+    currentSuggestions.forEach((name, i) => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      if (i === highlightIndex) li.classList.add('highlight');
+      li.addEventListener('click', () => selectCard(name));
+      sug.appendChild(li);
+    });
+    // Scroll al item resaltado si queda fuera de vista
+    if (highlightIndex >= 0) {
+      const items = sug.querySelectorAll('li');
+      if (items[highlightIndex]) items[highlightIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  async function onNombreKeydown(e) {
+    const sug = document.getElementById('suggestions');
+    const visible = sug.style.display === 'block' && currentSuggestions.length > 0;
+
+    if (e.key === 'ArrowDown' && visible) {
+      e.preventDefault();
+      highlightIndex = Math.min(highlightIndex + 1, currentSuggestions.length - 1);
+      renderSuggestions();
+    } else if (e.key === 'ArrowUp' && visible) {
+      e.preventDefault();
+      highlightIndex = Math.max(highlightIndex - 1, 0);
+      renderSuggestions();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (visible && highlightIndex >= 0) {
+        // Seleccionar la carta resaltada Y esperar a que carguen sus datos
+        await selectCard(currentSuggestions[highlightIndex]);
+        // Datos ya cargados: insertar de una si están completos
+        if (selectedColor && selectedCMC) insertar();
+      } else if (visible && currentSuggestions.length > 0) {
+        // Enter sin resaltar nada: tomar la primera sugerencia
+        await selectCard(currentSuggestions[0]);
+        if (selectedColor && selectedCMC) insertar();
+      } else if (selectedColor && selectedCMC) {
+        // Campo ya completo (sin lista abierta) → insertar
+        insertar();
+      } else {
+        showToast('Elegí una carta de la lista', true);
+      }
+    } else if (e.key === 'Escape') {
+      sug.style.display = 'none';
+    }
+  }
+
+  async function selectCard(name) {
+    document.getElementById('nombre').value = name;
+    const sug = document.getElementById('suggestions');
+    sug.style.display = 'none';
+    currentSuggestions = [];
+    highlightIndex = -1;
+    cardDataLoading = true;
+    // Buscar datos completos en Scryfall
+    try {
+      const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
+      const card = await res.json();
+      if (card.type_line) autoSetTipo(card.type_line);
+      if (card.cmc !== undefined) {
+        // Si el coste incluye {X}, ajustar con X=2 (regla del cubo)
+        const tieneX = (card.mana_cost || '').includes('{X}');
+        const cmcAjustado = tieneX ? card.cmc + 2 : card.cmc;
+        autoSetCMC(cmcAjustado);
+      }
+      // card.colors = color real de la carta (no color_identity, que incluye texto)
+      autoSetColor(card.colors || [], card.type_line);
+    } catch(e) {
+      showToast('No se pudieron cargar los datos de la carta', true);
+    } finally {
+      cardDataLoading = false;
+    }
+  }
+
+  function autoSetColor(colorIdentity, typeLine) {
+    let color;
+    const t = (typeLine || '').toLowerCase();
+    if (t.includes('land')) color = 'Tierras';
+    else if (colorIdentity.length === 0) color = 'Artefactos';
+    else if (colorIdentity.length > 1) color = 'Multicolor';
+    else {
+      const map = { W:'Blanco', U:'Azul', B:'Negro', R:'Rojo', G:'Verde' };
+      color = map[colorIdentity[0]];
+    }
+    if (color) {
+      document.querySelectorAll('.color-pill').forEach(p => p.classList.remove('selected'));
+      const pill = document.querySelector(`.color-pill[data-color="${color}"]`);
+      if (pill) { pill.classList.add('selected'); selectedColor = color; }
+    }
+  }
+
+  function autoSetTipo(typeLine) {
+    const t = typeLine.toLowerCase();
+    const sel = document.getElementById('tipo');
+    if (t.includes('creature')) sel.value = 'Criatura';
+    else if (t.includes('instant')) sel.value = 'Instantáneo';
+    else if (t.includes('sorcery')) sel.value = 'Conjuro';
+    else if (t.includes('enchantment')) sel.value = 'Encantamiento';
+    else if (t.includes('artifact')) sel.value = 'Artefacto';
+    else if (t.includes('planeswalker')) sel.value = 'Planeswalker';
+    else if (t.includes('land')) sel.value = 'Tierra';
+    else sel.value = 'Otro';
+  }
+
+  function autoSetCMC(cmc) {
+    document.querySelectorAll('.cmc-pill').forEach(p => p.classList.remove('selected'));
+    const val = cmc >= 6 ? '6+' : String(Math.floor(cmc));
+    const pill = document.querySelector(`.cmc-pill[data-cmc="${val}"]`);
+    if (pill) { pill.classList.add('selected'); selectedCMC = val; }
+    // Nota: para hechizos con {X}, Scryfall reporta X=0. Ajustá manualmente si aplica.
+  }
+
+  // ── SELECCIÓN COLOR / CMC ──
+  function selectColor(el) {
+    document.querySelectorAll('.color-pill').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedColor = el.dataset.color;
+  }
+
+  function selectCMC(el) {
+    document.querySelectorAll('.cmc-pill').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedCMC = el.dataset.cmc;
+  }
+
+  // ── INSERTAR ──
+  function insertar() {
+    const nombre = document.getElementById('nombre').value.trim();
+    if (!nombre) { showToast('Ingresá el nombre de la carta', true); return; }
+    if (!selectedColor) { showToast('Seleccioná un color', true); return; }
+    if (!selectedCMC) { showToast('Seleccioná el CMC', true); return; }
+
+    // Si hay un insert pendiente, mandarlo ya (no encolar dos a la vez)
+    if (pendingInsert) flushPendingInsert();
+
+    const carta = {
+      nombre,
+      color: selectedColor,
+      cmc: selectedCMC,
+      tipo: document.getElementById('tipo').value,
+    };
+
+    const aportadoVal = document.getElementById('aportado').value || 'Walala';
+    const estadoVal = document.getElementById('estado').value;
+
+    localStorage.setItem('cubo_aportado', aportadoVal);
+    localStorage.setItem('cubo_estado', estadoVal);
+
+    const payload = {
+      aportadoPor: aportadoVal,
+      estado: estadoVal,
+      cartas: [carta]
+    };
+
+    // Programar el envío en 5s — ventana de undo
+    const timeoutId = setTimeout(() => {
+      enviarPayload(payload, carta);
+      pendingInsert = null;
+    }, 5000);
+
+    pendingInsert = { payload, carta, timeoutId };
+
+    // Mostrar barra de undo sin interrumpir: el foco ya vuelve al nombre
+    showUndoBar(carta, aportadoVal, estadoVal);
+    resetForm();
+  }
+
+  // Enviar de inmediato cualquier insert pendiente (por si el usuario encadena rápido)
+  function flushPendingInsert() {
+    if (!pendingInsert) return;
+    clearTimeout(pendingInsert.timeoutId);
+    enviarPayload(pendingInsert.payload, pendingInsert.carta);
+    pendingInsert = null;
+  }
+
+  async function enviarPayload(payload, carta) {
+    try {
+      const url = SCRIPT_URL + '?payload=' + encodeURIComponent(JSON.stringify(payload));
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.ok && data.results.total_insertadas > 0) {
+        lastInserted.unshift(carta);
+        if (lastInserted.length > 5) lastInserted.pop();
+        fetchStatus();
+      } else {
+        showToast('Error: ' + (data.results?.errores?.[0]?.error || 'no insertada'), true);
+      }
+    } catch(e) {
+      showToast('Error de conexión al insertar ' + carta.nombre, true);
+    }
+  }
+
+  function undoPending() {
+    if (!pendingInsert) return;
+    clearTimeout(pendingInsert.timeoutId);
+    const nombre = pendingInsert.carta.nombre;
+    pendingInsert = null;
+    hideUndoBar();
+    showToast('↩ Cancelado: ' + nombre);
+  }
+
+  function resetForm() {
+    document.getElementById('nombre').value = '';
+    document.querySelectorAll('.color-pill').forEach(p => p.classList.remove('selected'));
+    document.querySelectorAll('.cmc-pill').forEach(p => p.classList.remove('selected'));
+    document.getElementById('tipo').value = 'Criatura';
+    selectedColor = null;
+    selectedCMC = null;
+    // Devolver foco al nombre para cargar la siguiente carta rápido
+    document.getElementById('nombre').focus();
+  }
+
+  function verUltimas() {
+    const div = document.getElementById('ultimas');
+    if (lastInserted.length === 0) {
+      div.innerHTML = '<p>Nada insertado en esta sesión.</p>';
+    } else {
+      div.innerHTML = lastInserted.map(c =>
+        `<div style="padding:6px 0; border-bottom:1px solid var(--border)">${c.nombre} — ${c.color} · CMC ${c.cmc}</div>`
+      ).join('');
+    }
+    div.style.display = 'block';
+  }
+
+  // ── UNDO BAR ──
+  function showUndoBar(carta, aportado, estado) {
+    const bar = document.getElementById('undo-bar');
+    const txt = document.getElementById('undo-text');
+    txt.innerHTML = `<strong style="color:var(--gold)">${carta.nombre}</strong> a ${estado} por ${aportado}`;
+    bar.classList.add('show');
+    // Ocultar cuando expire la ventana de undo (5s)
+    clearTimeout(bar._hideTimer);
+    bar._hideTimer = setTimeout(hideUndoBar, 5000);
+  }
+
+  function hideUndoBar() {
+    document.getElementById('undo-bar').classList.remove('show');
+  }
+
+  // ── TOAST ──
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isError ? ' error' : '');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // Cerrar suggestions al tocar fuera (mousedown/touchstart no se dispara en scroll)
+  document.addEventListener('mousedown', e => {
+    if (!e.target.closest('.autocomplete-wrap')) {
+      document.getElementById('suggestions').style.display = 'none';
+    }
+  });
+
+  // Si el usuario cierra/recarga con un insert pendiente, mandarlo
+  window.addEventListener('beforeunload', () => {
+    if (pendingInsert) {
+      const url = SCRIPT_URL + '?payload=' + encodeURIComponent(JSON.stringify(pendingInsert.payload));
+      // keepalive permite que el GET se complete aunque la página se cierre
+      fetch(url, { keepalive: true });
+    }
+  });
+
+  // Init
+  (function restaurarPreferencias() {
+    const aportado = localStorage.getItem('cubo_aportado');
+    const estado = localStorage.getItem('cubo_estado');
+    if (aportado) document.getElementById('aportado').value = aportado;
+    if (estado) document.getElementById('estado').value = estado;
+  })();
+
+  fetchStatus();
+</script>
+</body>
+</html>

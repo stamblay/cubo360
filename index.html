@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -526,25 +525,38 @@
           .then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }))
       ]);
 
-      const sugerencias = [];
+      const todos = [];
       const vistos = new Set();
 
-      // Resultados en español: mostrar nombre ES, guardar datos completos
+      // Recolectar resultados españoles
       (esData.data || []).forEach(card => {
-        const display = card.printed_name || card.name;
         if (!vistos.has(card.name)) {
           vistos.add(card.name);
-          sugerencias.push({ display, lookup: card.name, es: !!card.printed_name, cardData: card });
+          todos.push({ display: card.printed_name || card.name, lookup: card.name, es: !!card.printed_name, cardData: card });
         }
       });
 
-      // Resultados en inglés del autocomplete (los que no estén ya)
+      // Recolectar resultados ingleses (los que no estén ya)
       (enData.data || []).forEach(name => {
         if (!vistos.has(name)) {
           vistos.add(name);
-          sugerencias.push({ display: name, lookup: name, es: false, cardData: null });
+          todos.push({ display: name, lookup: name, es: false, cardData: null });
         }
       });
+
+      // Puntuar cada sugerencia por qué tan bien coincide con lo escrito
+      const query = q.trim().toLowerCase();
+      function puntaje(item) {
+        const nombre = item.display.toLowerCase();
+        if (nombre === query) return 0;              // coincidencia exacta
+        if (nombre.startsWith(query)) return 1;      // empieza con lo escrito
+        if (nombre.includes(' ' + query)) return 2;  // una palabra empieza con lo escrito
+        if (nombre.includes(query)) return 3;        // lo contiene en algún lugar
+        return 4;                                    // coincidencia lejana
+      }
+      todos.sort((a, b) => puntaje(a) - puntaje(b));
+
+      const sugerencias = todos;
 
       if (sugerencias.length === 0) { sug.style.display = 'none'; return; }
       currentSuggestions = sugerencias.slice(0, 8);

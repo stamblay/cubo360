@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -517,10 +518,36 @@
   async function fetchSuggestions(q) {
     const sug = document.getElementById('suggestions');
     try {
-      const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}`);
-      const data = await res.json();
-      if (!data.data || data.data.length === 0) { sug.style.display = 'none'; return; }
-      currentSuggestions = data.data.slice(0, 8);
+      // Búsqueda en paralelo: autocomplete (inglés) + search por nombre en español
+      const [enData, esData] = await Promise.all([
+        fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(q)}`)
+          .then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`https://api.scryfall.com/cards/search?q=name:${encodeURIComponent(q)}+lang:es&include_multilingual=true&order=name&unique=cards`)
+          .then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }))
+      ]);
+
+      const sugerencias = [];
+      const vistos = new Set();
+
+      // Resultados en español: mostrar nombre ES, guardar datos completos
+      (esData.data || []).forEach(card => {
+        const display = card.printed_name || card.name;
+        if (!vistos.has(card.name)) {
+          vistos.add(card.name);
+          sugerencias.push({ display, lookup: card.name, es: !!card.printed_name, cardData: card });
+        }
+      });
+
+      // Resultados en inglés del autocomplete (los que no estén ya)
+      (enData.data || []).forEach(name => {
+        if (!vistos.has(name)) {
+          vistos.add(name);
+          sugerencias.push({ display: name, lookup: name, es: false, cardData: null });
+        }
+      });
+
+      if (sugerencias.length === 0) { sug.style.display = 'none'; return; }
+      currentSuggestions = sugerencias.slice(0, 8);
       highlightIndex = -1;
       renderSuggestions();
       sug.style.display = 'block';
@@ -533,14 +560,19 @@
   function renderSuggestions() {
     const sug = document.getElementById('suggestions');
     sug.innerHTML = '';
-    currentSuggestions.forEach((name, i) => {
+    currentSuggestions.forEach((item, i) => {
       const li = document.createElement('li');
-      li.textContent = name;
+      li.textContent = item.display;
+      if (item.es) {
+        const badge = document.createElement('span');
+        badge.textContent = 'ES';
+        badge.style.cssText = 'float:right;font-size:9px;color:var(--gold-dim);border:1px solid var(--gold-dim);border-radius:3px;padding:1px 4px;';
+        li.appendChild(badge);
+      }
       if (i === highlightIndex) li.classList.add('highlight');
-      li.addEventListener('click', () => selectCard(name));
+      li.addEventListener('click', () => selectCard(item));
       sug.appendChild(li);
     });
-    // Scroll al item resaltado si queda fuera de vista
     if (highlightIndex >= 0) {
       const items = sug.querySelectorAll('li');
       if (items[highlightIndex]) items[highlightIndex].scrollIntoView({ block: 'nearest' });
@@ -581,27 +613,31 @@
     }
   }
 
-  async function selectCard(name) {
-    document.getElementById('nombre').value = name;
+  async function selectCard(item) {
+    // item puede ser un objeto {display, lookup, es, cardData} o un string (compat)
+    const lookup = typeof item === 'string' ? item : item.lookup;
     const sug = document.getElementById('suggestions');
     sug.style.display = 'none';
     currentSuggestions = [];
     highlightIndex = -1;
     cardDataLoading = true;
-    // Buscar datos completos en Scryfall
     try {
-      const res = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`);
-      const card = await res.json();
+      let card = (typeof item === 'object' && item.cardData) ? item.cardData : null;
+      // Si no traemos datos ya cargados, buscarlos
+      if (!card) {
+        card = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(lookup)}`).then(r => r.json());
+      }
+      // Nombre a guardar: español (printed_name) si existe, si no el inglés
+      document.getElementById('nombre').value = card.printed_name || card.name;
       if (card.type_line) autoSetTipo(card.type_line);
       if (card.cmc !== undefined) {
-        // Si el coste incluye {X}, ajustar con X=2 (regla del cubo)
         const tieneX = (card.mana_cost || '').includes('{X}');
         const cmcAjustado = tieneX ? card.cmc + 2 : card.cmc;
         autoSetCMC(cmcAjustado);
       }
-      // card.colors = color real de la carta (no color_identity, que incluye texto)
       autoSetColor(card.colors || [], card.type_line);
     } catch(e) {
+      document.getElementById('nombre').value = lookup;
       showToast('No se pudieron cargar los datos de la carta', true);
     } finally {
       cardDataLoading = false;

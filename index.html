@@ -361,7 +361,7 @@
 
 <header>
   <h1>⬡ Cubo 360</h1>
-  <p>Peasant · Pauper · MTG</p>
+  <p>v5</p>
 </header>
 
 <nav>
@@ -528,11 +528,16 @@
       const todos = [];
       const vistos = new Set();
 
-      // Recolectar resultados españoles
+      // Recolectar resultados españoles (guardar ambos nombres)
       (esData.data || []).forEach(card => {
         if (!vistos.has(card.name)) {
           vistos.add(card.name);
-          todos.push({ display: card.printed_name || card.name, lookup: card.name, es: !!card.printed_name, cardData: card });
+          todos.push({
+            nombreEs: card.printed_name || null,
+            nombreEn: card.name,
+            lookup: card.name,
+            cardData: card
+          });
         }
       });
 
@@ -540,22 +545,40 @@
       (enData.data || []).forEach(name => {
         if (!vistos.has(name)) {
           vistos.add(name);
-          todos.push({ display: name, lookup: name, es: false, cardData: null });
+          todos.push({ nombreEs: null, nombreEn: name, lookup: name, cardData: null });
         }
       });
 
-      // Puntuar cada sugerencia por qué tan bien coincide con lo escrito
       const query = q.trim().toLowerCase();
-      function puntaje(item) {
-        const nombre = item.display.toLowerCase();
-        if (nombre === query) return 0;              // coincidencia exacta
-        if (nombre.startsWith(query)) return 1;      // empieza con lo escrito
-        if (nombre.includes(' ' + query)) return 2;  // una palabra empieza con lo escrito
-        if (nombre.includes(query)) return 3;        // lo contiene en algún lugar
-        return 4;                                    // coincidencia lejana
-      }
-      todos.sort((a, b) => puntaje(a) - puntaje(b));
 
+      // Puntúa qué tan bien coincide un texto con lo escrito
+      function puntajeTexto(texto) {
+        if (!texto) return 99;
+        const n = texto.toLowerCase();
+        if (n === query) return 0;
+        if (n.startsWith(query)) return 1;
+        if (n.includes(' ' + query)) return 2;
+        if (n.includes(query)) return 3;
+        return 99;
+      }
+
+      // Para cada carta: puntaje = el mejor entre su nombre ES y EN.
+      // El display se elige según cuál nombre coincidió mejor con lo escrito.
+      todos.forEach(item => {
+        const pEs = puntajeTexto(item.nombreEs);
+        const pEn = puntajeTexto(item.nombreEn);
+        item.puntaje = Math.min(pEs, pEn);
+        // Mostrar en el idioma que mejor coincide con lo que el usuario escribió
+        if (pEn <= pEs) {
+          item.display = item.nombreEn;
+          item.es = false;
+        } else {
+          item.display = item.nombreEs;
+          item.es = true;
+        }
+      });
+
+      todos.sort((a, b) => a.puntaje - b.puntaje);
       const sugerencias = todos;
 
       if (sugerencias.length === 0) { sug.style.display = 'none'; return; }
@@ -639,8 +662,15 @@
       if (!card) {
         card = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(lookup)}`).then(r => r.json());
       }
-      // Nombre a guardar: español (printed_name) si existe, si no el inglés
-      document.getElementById('nombre').value = card.printed_name || card.name;
+      // Nombre a guardar: el que se mostró al usuario (display), respetando el idioma que buscó.
+      // Si vino de string (sin display), usar español si existe.
+      let nombreAGuardar;
+      if (typeof item === 'object' && item.display) {
+        nombreAGuardar = item.display;
+      } else {
+        nombreAGuardar = card.printed_name || card.name;
+      }
+      document.getElementById('nombre').value = nombreAGuardar;
       if (card.type_line) autoSetTipo(card.type_line);
       if (card.cmc !== undefined) {
         const tieneX = (card.mana_cost || '').includes('{X}');
